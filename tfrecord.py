@@ -19,7 +19,7 @@ def _int64_feature(value):
 def convert_to_tfrecord(pairs, outdir, name):
     make_dirs(outdir)
 
-    writer = tf.python_io.TFRecordWriter(os.path.join(outdir, name))
+    writer = tf.io.TFRecordWriter(os.path.join(outdir, name))
     print('Writing', name)
     for image_path, label_path in pairs:
         image = np.array(Image.open(image_path))

@@ -2,25 +2,46 @@
 [SegNet](http://mi.eng.cam.ac.uk/projects/segnet/) implementation in Tensorflow.
 
 ## Environments
-- Python 3.5.2
-- Numpy==1.13.3
-- Pillow==4.2.1
-- tensorflow-gpu==1.3.0
-- tensorflow-tensorboard==0.1.7
+- Python 3.7.7
+- Numpy==1.18.4
+- Pillow==7.1.2
+- matplotlib==3.2.1
+- tensorflow-gpu==2.1.0
 
 
 ## Usage  
-1. Download CamVid Dataset
+1.	Clone the repo:
+```
+git clone https://github.com/aizawan/segnet.git
+```
+
+2. Download CamVid Dataset
 ```
 bash download.sh
 ```
 
-2. Convert CamVid dataset to TFRecord format
+3. Convert CamVid dataset to TFRecord format
 ```
 python camvid.py --target train
 ```
 
-3. Training
+4. Create conda env (recommended but optional):
+```
+conda create -n tf-gpu
+conda activate tf-gpu
+```
+
+Install tensorflow-gpu:
+```
+conda install tensorflow-gpu
+```
+
+Install Pillow & matplotlib:
+```
+pip install Pillow matplotlib
+```
+
+5. Training
 ```
 python train.py \
   --iteration 20000 \
@@ -29,7 +50,7 @@ python train.py \
   --learning_rate 1.0
 ```
 
-4. Evaluation
+6. Evaluation
 ```
 python eval.py \
   --resdir eval \

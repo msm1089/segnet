@@ -15,7 +15,7 @@ from datetime import datetime
 from utils import make_dirs
 from inputs import read_and_decode
 
-flags = tf.app.flags
+flags = tf.compat.v1.app.flags
 FLAGS = flags.FLAGS
 
 # Basic arguments
@@ -48,7 +48,7 @@ flags.DEFINE_boolean('cb', False, 'Class Balancing')
 
 
 np.random.seed(FLAGS.seed)
-tf.set_random_seed(FLAGS.seed)
+tf.compat.v1.set_random_seed(FLAGS.seed)
 
 
 def save_model(sess, saver, step, outdir, message):
@@ -61,13 +61,13 @@ def save_model(sess, saver, step, outdir, message):
 def train(model_dir, summary_dir):
     logging.info('Training {}'.format(FLAGS.arch))
     logging.info('FLAGS: {}'.format(FLAGS.__flags))
-    print(FLAGS.__flags)
+    #print(FLAGS.__flags)
 
     graph = tf.Graph()
     with graph.as_default():
         dataset = importlib.import_module(FLAGS.dataset)
 
-        fn_queue = tf.train.string_input_producer([FLAGS.tfrecord])
+        fn_queue = tf.compat.v1.train.string_input_producer([FLAGS.tfrecord])
         images, labels = read_and_decode(
             fn_queue=fn_queue,
             target_height=FLAGS.height,
@@ -77,7 +77,7 @@ def train(model_dir, summary_dir):
             min_after_dequeue=FLAGS.min_after_dequeue,
             shuffle=True)
 
-        phase_train = tf.placeholder(tf.bool, name='phase_train')
+        phase_train = tf.compat.v1.placeholder(tf.bool, name='phase_train')
 
         model = importlib.import_module(FLAGS.arch)
         logits = model.inference(images, phase_train)
@@ -93,16 +93,16 @@ def train(model_dir, summary_dir):
         train_op = model.train_op(loss, FLAGS.optimizer,
             lr=FLAGS.learning_rate, momentum=FLAGS.momentum)
 
-        saver = tf.train.Saver()
+        saver = tf.compat.v1.train.Saver()
 
-    with tf.Session(graph=graph) as sess:
-        sess.run(tf.group(tf.global_variables_initializer(),
-                          tf.local_variables_initializer()))
+    with tf.compat.v1.Session(graph=graph) as sess:
+        sess.run(tf.group(tf.compat.v1.global_variables_initializer(),
+                          tf.compat.v1.local_variables_initializer()))
 
-        writer = tf.summary.FileWriter(summary_dir, sess.graph)
+        writer = tf.compat.v1.summary.FileWriter(summary_dir, sess.graph)
 
         coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        threads = tf.compat.v1.train.start_queue_runners(sess=sess, coord=coord)
 
         start_time = time.time()
 
@@ -162,4 +162,4 @@ def main(_):
 
 
 if __name__ == '__main__':
-    tf.app.run()
+    tf.compat.v1.app.run()

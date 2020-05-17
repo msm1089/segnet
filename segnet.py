@@ -11,24 +11,24 @@ import tensorflow as tf
 
 from ops import *
 
-flags = tf.app.flags
+flags = tf.compat.v1.app.flags
 FLAGS = flags.FLAGS
 
 
 def inference(inputs, phase_train):
-    with tf.variable_scope(FLAGS.arch):
+    with tf.compat.v1.variable_scope(FLAGS.arch):
         h, mask = encoder(inputs, phase_train, name='encoder')
         logits = decoder(h, mask, phase_train, name='decoder')
     return logits
 
 
 def loss(logits, labels, ignore_label=-1, cb=None, name='loss'):
-    with tf.name_scope(name):
+    with tf.compat.v1.name_scope(name):
         num_class = logits.get_shape().as_list()[-1]
         epsilon = tf.constant(value=1e-10)
         logits = tf.reshape(logits, (-1, num_class))
         labels = tf.reshape(labels, (-1, 1))
-        not_ign_mask = tf.where(tf.not_equal(tf.squeeze(labels), ignore_label))
+        not_ign_mask = tf.compat.v1.where(tf.not_equal(tf.squeeze(labels), ignore_label))
 
         logits = tf.reshape(tf.gather(logits, not_ign_mask), (-1, num_class))
         labels = tf.reshape(tf.gather(labels, not_ign_mask), (-1, 1))
@@ -40,22 +40,22 @@ def loss(logits, labels, ignore_label=-1, cb=None, name='loss'):
 
         if cb is not None:
             xe = -tf.reduce_sum(
-                tf.multiply(one_hot * tf.log(prob + epsilon), cb),
-                reduction_indices=[1])
+                input_tensor=tf.multiply(one_hot * tf.math.log(prob + epsilon), cb),
+                axis=[1])
         else:
             xe = tf.nn.softmax_cross_entropy_with_logits(
-                labels=one_hot, logits=logits)
+                labels=tf.stop_gradient(one_hot), logits=logits)
 
-        mxe = tf.reduce_mean(xe)
+        mxe = tf.reduce_mean(input_tensor=xe)
     return mxe
 
 
 def acc(logits, labels, ignore_label=-1, name='acc'):
-    with tf.name_scope(name):
+    with tf.compat.v1.name_scope(name):
         logits = tf.reshape(logits, (-1, FLAGS.num_class))
         labels = tf.reshape(labels, [-1])
 
-        not_ign_mask = tf.where(tf.not_equal(tf.squeeze(labels), ignore_label))
+        not_ign_mask = tf.compat.v1.where(tf.not_equal(tf.squeeze(labels), ignore_label))
 
         logits = tf.reshape(tf.gather(logits, not_ign_mask), (-1, FLAGS.num_class))
         labels = tf.reshape(tf.gather(labels, not_ign_mask), [-1])
@@ -64,17 +64,17 @@ def acc(logits, labels, ignore_label=-1, name='acc'):
         logits = tf.add(logits, epsilon)
 
         prob = tf.nn.softmax(logits)
-        pred = tf.cast(tf.argmax(prob, axis=1), tf.int32)
+        pred = tf.cast(tf.argmax(input=prob, axis=1), tf.int32)
 
         correct_pred = tf.equal(pred, labels)
-        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+        accuracy = tf.reduce_mean(input_tensor=tf.cast(correct_pred, tf.float32))
         return accuracy
 
 
 def predict(logits, name='predict'):
-    with tf.name_scope(name):
+    with tf.compat.v1.name_scope(name):
         prob = tf.squeeze(tf.nn.softmax(logits))
-        pred = tf.squeeze(tf.cast(tf.argmax(prob, axis=-1), tf.int32))
+        pred = tf.squeeze(tf.cast(tf.argmax(input=prob, axis=-1), tf.int32))
     return prob, pred
 
 
@@ -84,31 +84,31 @@ def train_op(loss, opt_name, **kwargs):
 
 
 def setup_summary(loss, acc):
-    summary_loss = tf.summary.scalar('loss', loss)
-    summary_acc = tf.summary.scalar('acc', acc)
-    return tf.summary.merge([summary_loss, summary_acc])
+    summary_loss = tf.compat.v1.summary.scalar('loss', loss)
+    summary_acc = tf.compat.v1.summary.scalar('acc', acc)
+    return tf.compat.v1.summary.merge([summary_loss, summary_acc])
 
 
 def _get_optimizer(opt_name, params):
     if opt_name == 'adam':
-        return tf.train.AdamOptimizer(params['lr'])
+        return tf.compat.v1.train.AdamOptimizer(params['lr'])
     elif opt_name == 'adadelta':
-        return tf.train.AdadeltaOptimizer(params['lr'])
+        return tf.compat.v1.train.AdadeltaOptimizer(params['lr'])
     elif opt_name == 'sgd':
-        return tf.train.GradientDescentOptimizer(params['lr'])
+        return tf.compat.v1.train.GradientDescentOptimizer(params['lr'])
     elif opt_name == 'momentum':
-        return tf.train.MomentumOptimizer(params['lr'], params['momentum'])
+        return tf.compat.v1.train.MomentumOptimizer(params['lr'], params['momentum'])
     elif opt_name == 'rms':
-        return tf.train.RMSPropOptimizer(params['lr'])
+        return tf.compat.v1.train.RMSPropOptimizer(params['lr'])
     elif opt_name == 'adagrad':
-        return tf.train.AdagradOptimizer(params['lr'])
+        return tf.compat.v1.train.AdagradOptimizer(params['lr'])
     else:
         print('error')
 
 
 def n_enc_block(inputs, phase_train, n, k, name):
     h = inputs
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
         for i in range(n):
             h = conv2d(h, k, 3, stride=1, name='conv_{}'.format(i + 1))
             h = batch_norm(h, phase_train, name='bn_{}'.format(i + 1))
@@ -118,7 +118,7 @@ def n_enc_block(inputs, phase_train, n, k, name):
 
 
 def encoder(inputs, phase_train, name='encoder'):
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
         h, mask_1 = n_enc_block(inputs, phase_train, n=2, k=64, name='block_1')
         h, mask_2 = n_enc_block(h, phase_train, n=2, k=128, name='block_2')
         h, mask_3 = n_enc_block(h, phase_train, n=3, k=256, name='block_3')
@@ -129,11 +129,13 @@ def encoder(inputs, phase_train, name='encoder'):
 
 def n_dec_block(inputs, mask, adj_k, phase_train, n, k, name):
     in_shape = inputs.get_shape().as_list()
-    with tf.variable_scope(name):
+    print('segnet', name)
+    with tf.compat.v1.variable_scope(name):
         h = maxunpool2d(inputs, mask, name='unpool')
         for i in range(n):
+            print('segnet', k / 2)
             if i == (n - 1) and adj_k:
-                h = conv2d(h, k / 2, 3, stride=1, name='conv_{}'.format(i + 1))
+                h = conv2d(h, int(k / 2), 3, stride=1, name='conv_{}'.format(i + 1))
             else:
                 h = conv2d(h, k, 3, stride=1, name='conv_{}'.format(i + 1))
             h = batch_norm(h, phase_train, name='bn_{}'.format(i + 1))
@@ -142,13 +144,13 @@ def n_dec_block(inputs, mask, adj_k, phase_train, n, k, name):
 
 
 def dec_last_conv(inputs, phase_train, k, name):
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
         h = conv2d(inputs, k, 1, name='conv')
     return h
 
 
 def decoder(inputs, mask, phase_train, name='decoder'):
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
         h = n_dec_block(inputs, mask[0], False, phase_train, n=3, k=512, name='block_5')
         h = n_dec_block(h, mask[1], True, phase_train, n=3, k=512, name='block_4')
         h = n_dec_block(h, mask[2], True, phase_train, n=3, k=256, name='block_3')

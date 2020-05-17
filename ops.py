@@ -7,30 +7,31 @@ from tensorflow.python.training import moving_averages
 
 
 def xavier_initializer(uniform=True, seed=None, dtype=tf.float32):
-    return tf.contrib.layers.xavier_initializer(
-        uniform=uniform, seed=seed, dtype=dtype)
+    return tf.compat.v1.keras.initializers.VarianceScaling(
+        scale=1.0, mode="fan_avg", distribution=("uniform" if uniform else "truncated_normal"), seed=seed, dtype=dtype)
 
 
 def conv2d(incoming, num_filters, filter_size, stride=1, pad='SAME',
            activation=tf.identity,
-           weight_init=xavier_initializer(),
-           bias_init=tf.constant_initializer(0.0),
+           weight_init=xavier_initializer(dtype=tf.float32),
+           bias_init=tf.compat.v1.constant_initializer(0.0),
            reuse=False, name="conv2d"):
-
+    print('ops:', weight_init)
     x = incoming
 
     input_shape = incoming.get_shape().as_list()
+    print('ops:', input_shape)
     filter_shape = [filter_size, filter_size, input_shape[-1], num_filters]
     strides = [1, stride, stride, 1]
     bias_shape = [num_filters]
 
-    with tf.variable_scope(name, reuse=reuse) as scope:
-        weight = tf.get_variable(name + "_weight", filter_shape,
+    with tf.compat.v1.variable_scope(name, reuse=reuse) as scope:
+        weight = tf.compat.v1.get_variable(name + "_weight", filter_shape,
                                  initializer=weight_init)
-        bias = tf.get_variable(name + "_bias", bias_shape,
+        bias = tf.compat.v1.get_variable(name + "_bias", bias_shape,
                                initializer=bias_init)
 
-        conved = tf.nn.conv2d(x, weight, strides, pad)
+        conved = tf.nn.conv2d(input=x, filters=weight, strides=strides, padding=pad)
         conved = tf.nn.bias_add(conved, bias)
         output = activation(conved)
 
@@ -43,8 +44,8 @@ def maxpool2d(incoming, pool_size, stride=2, pad='SAME', name="maxpool2d"):
     filter_shape = [1, pool_size, pool_size, 1]
     strides = [1, stride, stride, 1]
 
-    with tf.name_scope(name) as scope:
-        pooled = tf.nn.max_pool(x, filter_shape, strides, pad)
+    with tf.compat.v1.name_scope(name) as scope:
+        pooled = tf.nn.max_pool2d(input=x, ksize=filter_shape, strides=strides, padding=pad)
 
     return pooled
 
@@ -55,21 +56,21 @@ def maxpool2d_with_argmax(incoming, pool_size=2, stride=2,
     filter_shape = [1, pool_size, pool_size, 1]
     strides = [1, stride, stride, 1]
 
-    with tf.name_scope(name):
+    with tf.compat.v1.name_scope(name):
         _, mask = tf.nn.max_pool_with_argmax(
             x, ksize=filter_shape, strides=strides, padding='SAME')
         mask = tf.stop_gradient(mask)
 
-        pooled = tf.nn.max_pool(
-            x, ksize=filter_shape, strides=strides, padding='SAME')
+        pooled = tf.nn.max_pool2d(
+            input=x, ksize=filter_shape, strides=strides, padding='SAME')
 
     return pooled, mask
 
 
 def upsample(incoming, size, name='upsample'):
     x = incoming
-    with tf.name_scope(name) as scope:
-        resized = tf.image.resize_nearest_neighbor(x, size=size)
+    with tf.compat.v1.name_scope(name) as scope:
+        resized = tf.image.resize(x, size=size, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     return resized
 
 
@@ -85,8 +86,8 @@ def maxunpool2d(incoming, mask, stride=2, name='unpool'):
                     input_shape[3])
 
     flat_output_shape = [output_shape[0], np.prod(output_shape[1:])]
-    with tf.name_scope(name):
-        flat_input_size = tf.size(x)
+    with tf.compat.v1.name_scope(name):
+        flat_input_size = tf.size(input=x)
         batch_range = tf.reshape(tf.range(output_shape[0], dtype=mask.dtype),
                                  shape=[input_shape[0], 1, 1, 1])
         b = tf.ones_like(mask) * batch_range
@@ -103,8 +104,8 @@ def maxunpool2d(incoming, mask, stride=2, name='unpool'):
 # https://github.com/tflearn/tflearn/blob/master/tflearn/layers/normalization.py
 def batch_norm(incoming, phase_train,
                epsilon=1e-4, alpha=0.1, decay=0.9,
-               beta_init=tf.constant_initializer(0.0),
-               gamma_init=tf.random_normal_initializer(mean=1.0, stddev=0.002),
+               beta_init=tf.compat.v1.constant_initializer(0.0),
+               gamma_init=tf.compat.v1.random_normal_initializer(mean=1.0, stddev=0.002),
                reuse=False, name='batch_norm'):
 
     x = incoming
@@ -112,21 +113,21 @@ def batch_norm(incoming, phase_train,
     input_shape = incoming.get_shape().as_list()
 
     depth = input_shape[-1]
-    with tf.variable_scope(name, reuse=reuse) as scope:
-        beta = tf.get_variable(name + '_beta', shape=depth,
+    with tf.compat.v1.variable_scope(name, reuse=reuse) as scope:
+        beta = tf.compat.v1.get_variable(name + '_beta', shape=depth,
                                initializer=beta_init, trainable=True)
-        gamma = tf.get_variable(name + '_gamma', shape=depth,
+        gamma = tf.compat.v1.get_variable(name + '_gamma', shape=depth,
                                 initializer=gamma_init, trainable=True)
 
         axes = list(range(len(input_shape) - 1))
-        batch_mean, batch_variance = tf.nn.moments(incoming, axes) # channel
-        moving_mean = tf.get_variable(
+        batch_mean, batch_variance = tf.nn.moments(x=incoming, axes=axes) # channel
+        moving_mean = tf.compat.v1.get_variable(
             name + '_moving_mean', shape=depth,
-            initializer=tf.zeros_initializer(),
+            initializer=tf.compat.v1.zeros_initializer(),
             trainable=False)
-        moving_variance = tf.get_variable(
+        moving_variance = tf.compat.v1.get_variable(
             name + '_moving_variance', shape=depth,
-            initializer=tf.constant_initializer(1.0),
+            initializer=tf.compat.v1.constant_initializer(1.0),
             trainable=False)
 
         def update():
@@ -139,9 +140,9 @@ def batch_norm(incoming, phase_train,
                 [update_moving_mean, update_moving_variance]):
                 return tf.identity(batch_mean), tf.identity(batch_variance)
 
-        mean, variance = tf.cond(phase_train,
-                                 update,
-                                 lambda: (moving_mean, moving_variance))
+        mean, variance = tf.cond(pred=phase_train,
+                                 true_fn=update,
+                                 false_fn=lambda: (moving_mean, moving_variance))
 
         output = tf.nn.batch_normalization(
             x, mean, variance, beta, gamma, epsilon)
@@ -151,6 +152,6 @@ def batch_norm(incoming, phase_train,
 
 def relu(incoming, summary=False, name='relu'):
     x = incoming
-    with tf.name_scope(name) as scope:
+    with tf.compat.v1.name_scope(name) as scope:
         output = tf.nn.relu(x)
     return output

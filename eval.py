@@ -17,7 +17,7 @@ from camvid import load_splited_path
 from inputs import read_image_label_from_queue, scale_fixed_size
 from utils import make_dirs, save_img, vis_semseg
 
-flags = tf.app.flags
+flags = tf.compat.v1.app.flags
 FLAGS = flags.FLAGS
 
 # Basic arguments
@@ -48,15 +48,15 @@ def build_model(images, phase_train):
 
 
 def crop_and_upsample(prob, resized_image, raw_image, mask):
-    resized_h = tf.shape(resized_image)[1]
-    resized_w = tf.shape(resized_image)[2]
+    resized_h = tf.shape(input=resized_image)[1]
+    resized_w = tf.shape(input=resized_image)[2]
     resized_shape = tf.stack([1, resized_h, resized_w, FLAGS.num_class])
-    raw_shape = tf.shape(raw_image)[:2]
+    raw_shape = tf.shape(input=raw_image)[:2]
     cropped_prob = tf.boolean_mask(
-        tf.squeeze(prob), tf.squeeze(tf.equal(mask, 0)))
+        tensor=tf.squeeze(prob), mask=tf.squeeze(tf.equal(mask, 0)))
     reshaped_prob = tf.reshape(cropped_prob, resized_shape)
-    upsampled_prob = tf.image.resize_bilinear(reshaped_prob, raw_shape)
-    return tf.squeeze(tf.cast(tf.argmax(upsampled_prob, axis=-1), tf.int32))
+    upsampled_prob = tf.image.resize(reshaped_prob, raw_shape, method=tf.image.ResizeMethod.BILINEAR)
+    return tf.squeeze(tf.cast(tf.argmax(input=upsampled_prob, axis=-1), tf.int32))
 
 
 def evaluate(res_dir, ignore_label=255):
@@ -76,7 +76,7 @@ def evaluate(res_dir, ignore_label=255):
         cropped_image, resized_image, mask = scale_fixed_size(
             raw_image, raw_label, [FLAGS.height, FLAGS.width])
 
-        phase_train = tf.placeholder(tf.bool, name='phase_train')
+        phase_train = tf.compat.v1.placeholder(tf.bool, name='phase_train')
         output = build_model(cropped_image, phase_train)
         upsampled_pred = crop_and_upsample(output, resized_image, raw_image, mask)
 
@@ -84,20 +84,22 @@ def evaluate(res_dir, ignore_label=255):
         label = tf.reshape(raw_label, [-1,])
         weights = tf.cast(tf.not_equal(label, ignore_label), tf.int32)
 
-        mean_iou, update_op = tf.contrib.metrics.streaming_mean_iou(
-            pred, label, num_classes=FLAGS.num_class, weights=weights)
+        mean_iou, update_op = tf.compat.v1.metrics.mean_iou(label, pred, num_classes=FLAGS.num_class, weights=weights)
 
-        saver = tf.train.Saver()
+        #mean_iou, update_op = tf.contrib.metrics.streaming_mean_iou(
+        #    pred, label, num_classes=FLAGS.num_class, weights=weights)
 
-    with tf.Session(graph=graph) as sess:
-        sess.run(tf.global_variables_initializer())
-        sess.run(tf.local_variables_initializer())
+        saver = tf.compat.v1.train.Saver()
+
+    with tf.compat.v1.Session(graph=graph) as sess:
+        sess.run(tf.compat.v1.global_variables_initializer())
+        sess.run(tf.compat.v1.local_variables_initializer())
 
         ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
         saver.restore(sess, ckpt.model_checkpoint_path)
 
         coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        threads = tf.compat.v1.train.start_queue_runners(sess=sess, coord=coord)
 
         logging.info('Start evaluating...')
 
@@ -145,4 +147,4 @@ def main(_):
 
 
 if __name__ == '__main__':
-    tf.app.run()
+    tf.compat.v1.app.run()
