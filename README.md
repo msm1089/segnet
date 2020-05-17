@@ -12,7 +12,7 @@
 ## Usage  
 1.	Clone the repo:
 ```
-git clone https://github.com/aizawan/segnet.git
+git clone https://github.com/msm1089/segnet.git
 ```
 
 2. Download CamVid Dataset
