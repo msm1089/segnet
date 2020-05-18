@@ -19,6 +19,10 @@ git clone https://github.com/msm1089/segnet.git
 ```
 bash download.sh
 ```
+ If you do not have wget installed, install it and try again. I used Chocalatey and then
+```
+choco install wget
+```
 
 3. Convert CamVid dataset to TFRecord format
 ```
@@ -31,12 +35,12 @@ conda create -n tf-gpu
 conda activate tf-gpu
 ```
 
-Install tensorflow-gpu:
+ Install tensorflow-gpu:
 ```
 conda install tensorflow-gpu
 ```
 
-Install Pillow & matplotlib:
+ Install Pillow & matplotlib:
 ```
 pip install Pillow matplotlib
 ```
